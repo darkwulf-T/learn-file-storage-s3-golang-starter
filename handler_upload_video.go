@@ -77,6 +77,21 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ratio, err := getVideoAspectRatio(tempFile.Name())
+	if err != nil {
+		respondWithError(w, 500, "error determing the video ration", err)
+		return
+	}
+	prefix := ""
+	switch ratio {
+	case "16:9":
+		prefix = "landscape"
+	case "9:16":
+		prefix = "portrait"
+	default:
+		prefix = "other"
+	}
+
 	ranBytes := make([]byte, 32)
 	_, err = rand.Read(ranBytes)
 	if err != nil {
@@ -85,7 +100,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 	filename := base64.RawURLEncoding.EncodeToString(ranBytes)
 	fileExtension := strings.Split(contentType, "/")
-	filekey := fmt.Sprintf("%v.%v", filename, fileExtension[1])
+	filekey := fmt.Sprintf("%v/%v.%v", prefix, filename, fileExtension[1])
 	_, err = cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket:      aws.String(cfg.s3Bucket),
 		Key:         aws.String(filekey),
